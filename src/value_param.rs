@@ -233,6 +233,9 @@ where
     }
 }
 
+// We want to impl Param and RValueParam for Pin<MoveRef<'a,T>>.
+// This is hard because we need to consume the MoveRef.
+
 impl<T> ValueParam<T> for T where T: CopyNew {}
 
 impl<T> RValueParam<T> for UniquePtr<T> where T: UniquePtrTarget {}

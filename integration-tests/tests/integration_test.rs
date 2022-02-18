@@ -5732,15 +5732,32 @@ fn test_take_nonpod_rvalue() {
         struct A {
             std::string a;
         };
-        inline A make_a() {}
         inline void take_a(A&& a) {};
     "};
     let rs = quote! {
-        let a = ffi::make_a();
+        let a = ffi::A::make_unique();
         unsafe { ffi::take_a(a) };
     };
-    run_test("", hdr, rs, &["A", "make_a", "take_a"], &[]);
+    run_test("", hdr, rs, &["A", "take_a"], &[]);
 }
+
+
+#[test]
+fn test_take_nonpod_rvalue_from_stack() {
+    let hdr = indoc! {"
+        #include <string>
+        struct A {
+            std::string a;
+        };
+        inline void take_a(A&& a) {};
+    "};
+    let rs = quote! {
+        moveit! { let a = ffi::A::new() };
+        unsafe { ffi::take_a(a) };
+    };
+    run_test("", hdr, rs, &["A", "take_a"], &[]);
+}
+
 
 #[test]
 fn test_overloaded_ignored_function() {
