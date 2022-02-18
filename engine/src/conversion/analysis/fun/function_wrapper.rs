@@ -46,6 +46,7 @@ pub(crate) enum RustConversionType {
     FromPinMoveRefToPtr,
     FromTypeToPtr,
     FromValueParamToPtr,
+    FromRValueParamToPtr,
 }
 
 impl RustConversionType {

@@ -721,6 +721,7 @@ impl<'a> FnAnalyzer<'a> {
                     &fun.synthesized_this_type,
                     &fun.references,
                     true,
+                    false,
                     None,
                     sophistication,
                 )
@@ -994,6 +995,7 @@ impl<'a> FnAnalyzer<'a> {
                     &mut param_details,
                     None,
                     sophistication,
+                    false,
                 )
                 .unwrap_or_else(&mut set_ignore_reason);
             }
@@ -1011,6 +1013,7 @@ impl<'a> FnAnalyzer<'a> {
                     &mut param_details,
                     Some(RustConversionType::FromTypeToPtr),
                     sophistication,
+                    false,
                 )
                 .unwrap_or_else(&mut set_ignore_reason);
             }
@@ -1027,6 +1030,7 @@ impl<'a> FnAnalyzer<'a> {
                     &mut param_details,
                     Some(RustConversionType::FromPinMaybeUninitToPtr),
                     sophistication,
+                    false,
                 )
                 .unwrap_or_else(&mut set_ignore_reason);
             }
@@ -1044,6 +1048,7 @@ impl<'a> FnAnalyzer<'a> {
                     &mut param_details,
                     Some(RustConversionType::FromPinMaybeUninitToPtr),
                     sophistication,
+                    false,
                 )
                 .unwrap_or_else(&mut set_ignore_reason);
                 self.reanalyze_parameter(
@@ -1055,6 +1060,7 @@ impl<'a> FnAnalyzer<'a> {
                     &mut param_details,
                     Some(RustConversionType::FromPinMoveRefToPtr),
                     sophistication,
+                    true,
                 )
                 .unwrap_or_else(&mut set_ignore_reason);
             }
@@ -1084,16 +1090,6 @@ impl<'a> FnAnalyzer<'a> {
             set_ignore_reason(ConvertError::RValueReturn)
         } else if fun.is_deleted {
             set_ignore_reason(ConvertError::Deleted)
-        } else if !fun.references.rvalue_ref_params.is_empty()
-            && !matches!(
-                kind,
-                FnKind::TraitMethod {
-                    kind: TraitMethodKind::MoveConstructor,
-                    ..
-                }
-            )
-        {
-            set_ignore_reason(ConvertError::RValueParam)
         } else if let Some(problem) = bads.into_iter().next() {
             match problem {
                 Ok(_) => panic!("No error in the error"),
@@ -1390,6 +1386,7 @@ impl<'a> FnAnalyzer<'a> {
         param_details: &mut [ArgumentAnalysis],
         force_rust_conversion: Option<RustConversionType>,
         sophistication: TypeConversionSophistication,
+        is_move_constructor: bool,
     ) -> Result<(), ConvertError> {
         self.convert_fn_arg(
             fun.inputs.iter().nth(param_idx).unwrap(),
@@ -1398,6 +1395,7 @@ impl<'a> FnAnalyzer<'a> {
             &fun.synthesized_this_type,
             &fun.references,
             false,
+            is_move_constructor,
             force_rust_conversion,
             sophistication,
         )
@@ -1552,6 +1550,7 @@ impl<'a> FnAnalyzer<'a> {
         virtual_this: &Option<QualifiedName>,
         references: &References,
         treat_this_as_reference: bool,
+        is_move_constructor: bool,
         force_rust_conversion: Option<RustConversionType>,
         sophistication: TypeConversionSophistication,
     ) -> Result<(FnArg, ArgumentAnalysis), ConvertError> {
@@ -1624,6 +1623,7 @@ impl<'a> FnAnalyzer<'a> {
                     &new_ty,
                     &subclass_holder.cloned(),
                     treat_as_rvalue_reference,
+                    is_move_constructor,
                     force_rust_conversion,
                     sophistication,
                 );
@@ -1662,6 +1662,7 @@ impl<'a> FnAnalyzer<'a> {
         ty: &Type,
         is_subclass_holder: &Option<Ident>,
         is_rvalue_ref: bool,
+        is_move_constructor: bool,
         force_rust_conversion: Option<RustConversionType>,
         sophistication: TypeConversionSophistication,
     ) -> TypeConversionPolicy {
@@ -1701,6 +1702,12 @@ impl<'a> FnAnalyzer<'a> {
                         cpp_conversion: CppConversionType::FromUniquePtrToValue,
                         rust_conversion: RustConversionType::None,
                     }
+                } else if is_rvalue_ref {
+                    TypeConversionPolicy {
+                        unwrapped_type: ty,
+                        cpp_conversion: CppConversionType::FromPtrToValue,
+                        rust_conversion: RustConversionType::FromRValueParamToPtr,
+                    }
                 } else {
                     TypeConversionPolicy {
                         unwrapped_type: ty,
@@ -1710,16 +1717,19 @@ impl<'a> FnAnalyzer<'a> {
                 }
             }
             _ => {
-                let cpp_conversion = if is_rvalue_ref {
-                    CppConversionType::FromPtrToMove
-                } else {
-                    CppConversionType::None
-                };
                 let rust_conversion = force_rust_conversion.unwrap_or(RustConversionType::None);
-                TypeConversionPolicy {
-                    unwrapped_type: ty.clone(),
-                    cpp_conversion,
-                    rust_conversion,
+                if is_move_constructor {
+                    TypeConversionPolicy {
+                        unwrapped_type: ty.clone(),
+                        cpp_conversion: CppConversionType::FromPtrToMove,
+                        rust_conversion,
+                    }
+                } else {
+                    TypeConversionPolicy {
+                        unwrapped_type: ty.clone(),
+                        cpp_conversion: CppConversionType::None,
+                        rust_conversion,
+                    }
                 }
             }
         }

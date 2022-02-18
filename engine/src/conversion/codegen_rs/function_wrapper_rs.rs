@@ -56,6 +56,10 @@ impl TypeConversionPolicy {
                 let ty = &self.unwrapped_type;
                 parse_quote! { impl autocxx::ValueParam<#ty> }
             }
+            RustConversionType::FromRValueParamToPtr => {
+                let ty = &self.unwrapped_type;
+                parse_quote! { impl autocxx::RValueParam<#ty> }
+            }
         }
     }
 
@@ -96,7 +100,12 @@ impl TypeConversionPolicy {
                     #var
                 },
             ),
-            RustConversionType::FromValueParamToPtr => {
+            RustConversionType::FromValueParamToPtr | RustConversionType::FromRValueParamToPtr => {
+                let handler_type = make_ident(match self.rust_conversion {
+                    RustConversionType::FromValueParamToPtr => "ValueParamHandler",
+                    RustConversionType::FromRValueParamToPtr => "RValueParamHandler",
+                    _ => unreachable!(),
+                });
                 let var_name = if let Pat::Ident(pti) = &var {
                     &pti.ident
                 } else {
@@ -125,7 +134,7 @@ impl TypeConversionPolicy {
                 // nobody else accesses #space_var_name at all, so this is safe.
                 (
                     Some(quote! {
-                        let mut #space_var_name = autocxx::ValueParamHandler::default();
+                        let mut #space_var_name = autocxx::#handler_type::default();
                         let #space_var_name = &mut #space_var_name;
                         #call
                     }),

@@ -417,6 +417,8 @@ pub trait PinMut<T>: AsRef<T> {
 pub use value_param::as_copy;
 pub use value_param::as_mov;
 pub use value_param::as_new;
+pub use value_param::RValueParam;
+pub use value_param::RValueParamHandler;
 pub use value_param::ValueParam;
 pub use value_param::ValueParamHandler;
 
