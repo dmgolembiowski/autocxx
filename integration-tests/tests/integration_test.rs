@@ -5726,6 +5726,23 @@ fn test_ignore_function_with_rvalue_ref() {
 }
 
 #[test]
+fn test_take_nonpod_rvalue() {
+    let hdr = indoc! {"
+        #include <string>
+        struct A {
+            std::string a;
+        };
+        inline A make_a() {}
+        inline void take_a(A&& a) {};
+    "};
+    let rs = quote! {
+        let a = ffi::make_a();
+        unsafe { ffi::take_a(a) };
+    };
+    run_test("", hdr, rs, &["A", "make_a", "take_a"], &[]);
+}
+
+#[test]
 fn test_overloaded_ignored_function() {
     // When overloaded functions are ignored during import, the placeholder
     // functions generated for them should have unique names, just as they
