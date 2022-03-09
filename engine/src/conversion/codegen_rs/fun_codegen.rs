@@ -22,9 +22,9 @@ use super::{
 };
 use crate::{
     conversion::{
-        analysis::fun::{
-            ArgumentAnalysis, FnAnalysis, FnKind, MethodKind, RustRenameStrategy,
-            TraitMethodDetails,
+        analysis::{
+            fun::{ArgumentAnalysis, FnKind, MethodKind, RustRenameStrategy, TraitMethodDetails},
+            AnnotatedFnAnalysis,
         },
         api::UnsafetyNeeded,
         codegen_rs::lifetime::add_lifetime_to_all_params,
@@ -80,9 +80,13 @@ impl UnsafetyNeeded {
 pub(super) fn gen_function(
     ns: &Namespace,
     fun: FuncToConvert,
-    analysis: FnAnalysis,
+    analysis: AnnotatedFnAnalysis,
     cpp_call_name: String,
 ) -> RsCodegenResult {
+    let AnnotatedFnAnalysis {
+        fun: analysis,
+        requires_make_unique,
+    } = analysis;
     if analysis.ignore_reason.is_err() || !analysis.externally_callable {
         return RsCodegenResult::default();
     }
@@ -133,12 +137,10 @@ pub(super) fn gen_function(
             } => {
                 // Method, or static method.
                 impl_entry = Some(fn_generator.generate_method_impl(
-                    matches!(
-                        method_kind,
-                        MethodKind::MakeUnique | MethodKind::Constructor { .. }
-                    ),
+                    matches!(method_kind, MethodKind::Constructor { .. }),
                     impl_for,
                     &ret_type,
+                    requires_make_unique,
                 ));
             }
             FnKind::TraitMethod { ref details, .. } => {
@@ -257,6 +259,7 @@ impl<'a> FnGenerator<'a> {
         avoid_self: bool,
         impl_block_type_name: &QualifiedName,
         ret_type: &ReturnType,
+        requires_make_unique: bool,
     ) -> Box<ImplBlockDetails> {
         let (wrapper_params, local_variables, arg_list) = self.generate_arg_lists(avoid_self);
         let (lifetime_tokens, wrapper_params, ret_type) =
@@ -264,6 +267,11 @@ impl<'a> FnGenerator<'a> {
         let rust_name = make_ident(self.rust_name);
         let unsafety = self.unsafety.wrapper_token();
         let doc_attr = self.doc_attr;
+        let make_unique_attr = if requires_make_unique {
+            Some(quote! { #[autocxx::derive_make_unique]})
+        } else {
+            None
+        };
         let cxxbridge_name = self.cxxbridge_name;
         let call_body = self.wrap_call_with_unsafe(quote! {
             cxxbridge::#cxxbridge_name ( #(#arg_list),* )
@@ -271,6 +279,7 @@ impl<'a> FnGenerator<'a> {
         Box::new(ImplBlockDetails {
             item: ImplItem::Method(parse_quote! {
                 #doc_attr
+                #make_unique_attr
                 pub #unsafety fn #rust_name #lifetime_tokens ( #wrapper_params ) #ret_type {
                     #(#local_variables),*
                     #call_body

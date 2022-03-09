@@ -15,10 +15,14 @@ pub(crate) mod deps;
 mod depth_first;
 pub(crate) mod fun;
 pub(crate) mod gc;
+mod make_unique;
 mod name_check;
 pub(crate) mod pod; // hey, that rhymes
 pub(crate) mod remove_ignored;
 pub(crate) mod tdef;
 mod type_converter;
 
+pub(crate) use make_unique::add_make_uniques;
+pub(crate) use make_unique::AnnotatedFnAnalysis;
+pub(crate) use make_unique::AnnotatedFnPhase;
 pub(crate) use name_check::check_names;
