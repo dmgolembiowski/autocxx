@@ -10,33 +10,6 @@ use cxx::{memory::UniquePtrTarget, UniquePtr};
 use moveit::{CopyNew, DerefMove, MoveNew, New};
 use std::{marker::PhantomPinned, mem::MaybeUninit, ops::Deref, pin::Pin};
 
-#[doc(hidden)]
-/// Trait representing either a value or rvalue parameter.
-pub trait Param<T> {
-    /// Any stack storage required. If, as part of passing to C++,
-    /// we need to store a temporary copy of the value, this will be `T`,
-    /// otherwise `()`.
-    #[doc(hidden)]
-    type StackStorage;
-    /// Whether this `ValueParam` requires temporary Rust-side storage of
-    /// an extra copy of this value.
-    #[doc(hidden)]
-    fn needs_stack_space(&self) -> bool;
-    /// Populate the stack storage given as a parameter. Only called if you
-    /// return `true` from `needs_stack_space`.
-    #[doc(hidden)]
-    fn populate_stack_space(&self, this: Pin<&mut MaybeUninit<Self::StackStorage>>);
-    /// Return a pointer to the storage.
-    /// Only called if `needs_stack_space` returns `false`, otherwise the pointer
-    /// to the stack space will be used.
-    /// Note that this returns a _mutable_ pointer. This is a big deal. That's
-    /// because, on the C++ side, we'll call `std::move(*ptr)` on this pointer.
-    /// This is unlikely to be semantically acceptable long-term, but currently
-    /// makes it 'quicker' when a [`cxx::UniquePtr`] is used as a value parameter.
-    #[doc(hidden)]
-    fn get_ptr(&mut self) -> *mut T;
-}
-
 /// A trait representing a parameter to a C++ function which is received
 /// by value.
 ///
@@ -233,13 +206,6 @@ where
     }
 }
 
-// We want to impl Param and RValueParam for Pin<MoveRef<'a,T>>.
-// This is hard because we need to consume the MoveRef.
-
-impl<T> ValueParam<T> for T where T: CopyNew {}
-
-impl<T> RValueParam<T> for UniquePtr<T> where T: UniquePtrTarget {}
-
 /// Implementation detail for how we pass value parameters into C++.
 /// This type is instantiated by auto-generated autocxx code each time we
 /// need to pass a value parameter into C++, and will take responsibility
@@ -252,9 +218,6 @@ pub struct ValueParamHandler<T, VP: ValueParam<T>> {
     space: Option<VP::StackStorage>,
     _pinned: PhantomPinned,
 }
-
-#[doc(hidden)]
-pub struct ValueParamHandler<T, VP: ValueParam<T>>(ParamHandler<T, VP>);
 
 impl<T, VP: ValueParam<T>> ValueParamHandler<T, VP> {
     /// Populate this stack space if needs be. Note safety guarantees
@@ -289,7 +252,7 @@ impl<T, VP: ValueParam<T>> Default for ValueParamHandler<T, VP> {
     }
 }
 
-impl<T, P: Param<T>> Drop for ParamHandler<T, P> {
+impl<T, VP: ValueParam<T>> Drop for ValueParamHandler<T, VP> {
     fn drop(&mut self) {
         if let Some(space) = self.space.as_mut() {
             unsafe { VP::do_drop(Pin::new_unchecked(space)) }

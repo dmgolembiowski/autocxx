@@ -13,6 +13,7 @@ include_cpp! {
     safety!(unsafe_ffi)
     generate!("DoMath")
     generate!("Goat")
+    generate!("take_movable_goat")
 }
 
 fn main() {
@@ -24,4 +25,5 @@ fn main() {
         goat.describe().as_ref().unwrap().to_string_lossy(),
         "This goat has 2 horns."
     );
+    ffi::take_movable_goat(goat);
 }

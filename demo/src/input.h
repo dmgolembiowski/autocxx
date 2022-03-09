@@ -17,11 +17,15 @@ class Goat {
 public:
     Goat();
     ~Goat();
+    Goat(Goat&&) {}
+    Goat(const Goat&) {}
     void add_a_horn();
     std::string describe() const;
 private:
     uint32_t horns;
 };
+
+inline void take_movable_goat(Goat&&) {}
 
 inline uint32_t DoMath(uint32_t a) {
     return a * 3;
