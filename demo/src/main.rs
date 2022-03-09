@@ -25,5 +25,5 @@ fn main() {
         goat.describe().as_ref().unwrap().to_string_lossy(),
         "This goat has 2 horns."
     );
-    ffi::take_movable_goat(goat);
+    unsafe { ffi::take_movable_goat(goat) };
 }

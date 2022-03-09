@@ -5741,7 +5741,6 @@ fn test_take_nonpod_rvalue() {
     run_test("", hdr, rs, &["A", "take_a"], &[]);
 }
 
-
 #[test]
 fn test_take_nonpod_rvalue_from_stack() {
     let hdr = indoc! {"
@@ -5757,7 +5756,6 @@ fn test_take_nonpod_rvalue_from_stack() {
     };
     run_test("", hdr, rs, &["A", "take_a"], &[]);
 }
-
 
 #[test]
 fn test_overloaded_ignored_function() {
