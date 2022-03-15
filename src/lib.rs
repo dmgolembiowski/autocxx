@@ -281,6 +281,17 @@ macro_rules! subclass {
 
 #[doc(hidden)]
 #[macro_export]
+macro_rules! include_ver {
+    ($input:path) => {
+        format!("// @generated using autocxx version {}.{}.{}{} for {}",
+            env!("CARGO_PKG_VERSION_MAJOR"),
+            env!("CARGO_PKG_VERSION_MINOR"),
+            env!("CARGO_PKG_VERSION_PATCH"),
+            option_env!("CARGO_PKG_VERSION_PRE").unwrap_or(""),
+            stringify!($path));
+    }
+}
+
 macro_rules! usage {
     (__docs) => {};
     ($($tt:tt)*) => {
@@ -301,6 +312,7 @@ pub use autocxx_macro::cpp_semantics;
 
 macro_rules! ctype_wrapper {
     ($r:ident, $c:expr, $d:expr) => {
+        /// @generated 
         #[doc=$d]
         #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
         #[allow(non_camel_case_types)]
